@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Users, TrendingUp, Search, ChevronRight, X, Trash2, ArchiveRestore, Ban, Mail, BarChart3
+  Users, TrendingUp, Search, ChevronRight, X, Trash2, ArchiveRestore, Ban, Mail, BarChart3,
+  Download, FileSpreadsheet, BrainCircuit, Sparkles, Target, AlertTriangle, ShieldCheck, Zap
 } from 'lucide-react';
 import { 
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip 
 } from 'recharts';
-import { TeamAssessmentData, AssessmentResult, Competency } from '../types';
+import { TeamAssessmentData, AssessmentResult, Competency, CoachingFeedback } from '../types';
 import { mockDB } from '../services/mockDatabase';
+import { generateTeamFeedback } from '../services/geminiService';
 import { COMPETENCY_LABELS } from '../constants';
 import Analytics from './Analytics';
+import html2canvas from 'html2canvas';
 
 const TeamDashboard: React.FC = () => {
   const [teamData, setTeamData] = useState<TeamAssessmentData[]>([]);
@@ -16,6 +19,11 @@ const TeamDashboard: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<TeamAssessmentData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'active' | 'deleted'>('active');
+  
+  // Team Analysis State
+  const [teamFeedback, setTeamFeedback] = useState<CoachingFeedback | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const teamReportRef = useRef<HTMLDivElement>(null);
 
   // Load data function
   const loadData = () => {
@@ -81,6 +89,84 @@ const TeamDashboard: React.FC = () => {
     }
   };
 
+  // --- New Features Handlers ---
+
+  const handleDownloadCSV = () => {
+    if (filteredData.length === 0) {
+        alert("다운로드할 데이터가 없습니다.");
+        return;
+    }
+
+    // CSV Header
+    const headers = [
+        "이름", "이메일", "직책", "부서", "진단일자", "종합점수",
+        ...Object.values(COMPETENCY_LABELS).map(l => l.split(' (')[0])
+    ];
+
+    // CSV Rows
+    const rows = filteredData.map(member => [
+        member.name,
+        member.email,
+        member.role,
+        member.department,
+        new Date(member.date).toLocaleDateString(),
+        member.totalScore.toFixed(2),
+        ...Object.values(Competency).map(c => member.scores[c]?.toFixed(1) || "0")
+    ]);
+
+    // Combine
+    const csvContent = [
+        headers.join(","),
+        ...rows.map(r => r.join(","))
+    ].join("\n");
+
+    // Create Download Link
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `LeadAI_Team_Data_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleTeamAnalysis = async () => {
+    if (!teamStats) return;
+    setIsAnalyzing(true);
+    try {
+        const feedback = await generateTeamFeedback(teamStats.scores);
+        setTeamFeedback(feedback);
+        // Scroll to report
+        setTimeout(() => {
+            teamReportRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    } catch (e) {
+        console.error(e);
+        alert("분석 중 오류가 발생했습니다.");
+    } finally {
+        setIsAnalyzing(false);
+    }
+  };
+
+  const handleDownloadTeamReport = async () => {
+    if (!teamReportRef.current) return;
+    try {
+        const canvas = await html2canvas(teamReportRef.current, {
+            backgroundColor: '#f8fafc',
+            scale: 2,
+            ignoreElements: (el) => el.classList.contains('no-print')
+        });
+        const image = canvas.toDataURL("image/png");
+        const link = document.createElement('a');
+        link.href = image;
+        link.download = `LeadAI_Team_Report_${new Date().toISOString().slice(0,10)}.png`;
+        link.click();
+    } catch (e) {
+        console.error("Image capture failed", e);
+    }
+  };
+
   // Prepare Chart Data if stats exist
   const radarData = teamStats ? Object.values(Competency).map((comp) => ({
     subject: COMPETENCY_LABELS[comp].split(' (')[0],
@@ -95,6 +181,15 @@ const TeamDashboard: React.FC = () => {
         <div>
             <h1 className="text-2xl font-bold text-slate-800">팀 대시보드</h1>
             <p className="text-slate-500">조직 구성원의 리더십 진단 현황과 통계를 관리합니다.</p>
+        </div>
+        <div className="flex gap-2">
+            <button 
+                onClick={handleDownloadCSV}
+                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm"
+            >
+                <FileSpreadsheet className="w-4 h-4 mr-2 text-green-600" />
+                전체 결과 다운로드 (Excel)
+            </button>
         </div>
       </div>
 
@@ -119,6 +214,33 @@ const TeamDashboard: React.FC = () => {
                         <p className="text-sm text-slate-500 font-medium">조직 평균 점수</p>
                         <h3 className="text-3xl font-bold text-slate-800">{teamStats.totalAvg.toFixed(1)}점</h3>
                     </div>
+                </div>
+                
+                {/* AI Analysis Trigger Button */}
+                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-xl shadow-lg text-white">
+                    <h3 className="text-lg font-bold mb-2 flex items-center">
+                        <BrainCircuit className="w-5 h-5 mr-2" />
+                        Team AI Analysis
+                    </h3>
+                    <p className="text-purple-100 text-sm mb-4">
+                        우리 팀의 데이터를 기반으로 조직 문화와 강점을 심층 분석합니다.
+                    </p>
+                    <button 
+                        onClick={handleTeamAnalysis}
+                        disabled={isAnalyzing}
+                        className="w-full bg-white text-purple-700 py-2 rounded-lg font-bold hover:bg-purple-50 transition-colors flex items-center justify-center"
+                    >
+                        {isAnalyzing ? (
+                            <>
+                                <span className="animate-spin mr-2">⏳</span> 분석 중...
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                팀 인사이트 분석하기
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -153,6 +275,98 @@ const TeamDashboard: React.FC = () => {
                         />
                     </RadarChart>
                     </ResponsiveContainer>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Team AI Report Section (Conditionally Rendered) */}
+      {teamFeedback && (
+        <div ref={teamReportRef} className="animate-fade-in bg-slate-50 border-t-4 border-purple-500 rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-white p-8">
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-1 rounded">TEAM INSIGHT</span>
+                        <h2 className="text-2xl font-bold text-slate-800 mt-2">조직 리더십 인사이트 리포트</h2>
+                        <p className="text-slate-500">AI가 분석한 우리 조직의 문화적 특성과 전략적 제언입니다.</p>
+                    </div>
+                    <button 
+                        onClick={handleDownloadTeamReport}
+                        className="no-print bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg flex items-center text-sm font-medium transition-colors"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        리포트 저장
+                    </button>
+                </div>
+
+                <div className="bg-purple-50 p-6 rounded-xl border border-purple-100 mb-8">
+                    <h3 className="font-bold text-purple-900 mb-2 flex items-center">
+                        <BrainCircuit className="w-5 h-5 mr-2" />
+                        Executive Summary
+                    </h3>
+                    <p className="text-purple-800 leading-relaxed text-lg">
+                        {teamFeedback.analysis}
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200">
+                        <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+                            <ShieldCheck className="w-5 h-5 text-green-500 mr-2" />
+                            조직의 강점 (Top Strengths)
+                        </h3>
+                        <ul className="space-y-2">
+                            {teamFeedback.strengths.map((s, i) => (
+                                <li key={i} className="flex items-start text-slate-600 bg-green-50 p-3 rounded-lg">
+                                    <span className="font-bold text-green-600 mr-2">{i+1}.</span>
+                                    {s}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl border border-slate-200">
+                        <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+                            <AlertTriangle className="w-5 h-5 text-orange-500 mr-2" />
+                            조직의 과제 (Key Challenges)
+                        </h3>
+                        <ul className="space-y-2">
+                            {teamFeedback.weaknesses.map((w, i) => (
+                                <li key={i} className="flex items-start text-slate-600 bg-orange-50 p-3 rounded-lg">
+                                    <span className="font-bold text-orange-600 mr-2">{i+1}.</span>
+                                    {w}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                <div className="mb-8">
+                    <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+                        <Zap className="w-5 h-5 text-yellow-500 mr-2" />
+                        전략적 제언 (Strategic Action Plan)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {teamFeedback.actionPlans.map((plan, i) => (
+                            <div key={i} className="bg-slate-50 border border-slate-200 p-5 rounded-xl hover:border-purple-300 transition-colors">
+                                <span className={`text-xs font-bold px-2 py-1 rounded mb-2 inline-block
+                                    ${plan.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : 
+                                      plan.difficulty === 'Medium' ? 'bg-blue-100 text-blue-700' : 
+                                      'bg-red-100 text-red-700'}`}>
+                                    {plan.difficulty} Priority
+                                </span>
+                                <h4 className="font-bold text-slate-800 mb-2">{plan.title}</h4>
+                                <p className="text-sm text-slate-600">{plan.description}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-slate-900 text-white p-6 rounded-xl flex items-center justify-between">
+                    <div>
+                        <span className="text-slate-400 text-xs font-bold tracking-wider">TEAM MISSION CAMPAIGN</span>
+                        <h3 className="text-xl font-bold mt-1">"{teamFeedback.weeklyMission}"</h3>
+                    </div>
+                    <Target className="w-10 h-10 text-purple-400 opacity-50" />
                 </div>
             </div>
         </div>

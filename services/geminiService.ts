@@ -2,6 +2,37 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Competency, CoachingFeedback } from "../types";
 import { COMPETENCY_LABELS } from "../constants";
 
+// Common API Key retrieval logic
+const getApiKey = () => {
+  let apiKey = '';
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      apiKey = import.meta.env.VITE_API_KEY || import.meta.env.NEXT_PUBLIC_API_KEY;
+    }
+  } catch (e) { /* ignore */ }
+
+  if (!apiKey) {
+    try {
+      if (typeof process !== 'undefined' && process.env) {
+        apiKey = process.env.API_KEY || process.env.VITE_API_KEY || '';
+      }
+    } catch (e) { /* ignore */ }
+  }
+  return apiKey;
+};
+
+const createGeminiClient = () => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.warn("API Key not found. Please set VITE_API_KEY in Vercel Environment Variables.");
+    throw new Error("API Key configuration missing");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+// --- Individual Coaching ---
 export const generateCoachingFeedback = async (
   scores: Record<Competency, number>
 ): Promise<CoachingFeedback> => {
@@ -9,45 +40,15 @@ export const generateCoachingFeedback = async (
   const model = "gemini-2.5-flash";
 
   try {
-    // [Vercel 및 외부 배포 환경 호환성 수정]
-    // 1. process.env 접근 시 ReferenceError 방지
-    // 2. Vite 등 최신 번들러 환경(import.meta.env) 지원
-    let apiKey = '';
-
-    try {
-      if (typeof process !== 'undefined' && process.env) {
-        apiKey = process.env.API_KEY || '';
-      }
-    } catch (e) {
-      // process is not defined in strict browser environments, ignore error
-    }
-
-    if (!apiKey) {
-      try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env) {
-          // @ts-ignore
-          // Vercel에서 Vite 사용 시 VITE_ 접두사가 필요할 수 있음
-          apiKey = import.meta.env.VITE_API_KEY || import.meta.env.NEXT_PUBLIC_API_KEY || '';
-        }
-      } catch (e) { /* ignore */ }
-    }
-
-    if (!apiKey) {
-      console.warn("API Key not found. Please check Vercel Environment Variables.");
-      throw new Error("API Key configuration missing");
-    }
-
-    ai = new GoogleGenAI({ apiKey });
-
+    ai = createGeminiClient();
   } catch (error) {
     console.error("Gemini Client Initialization Error:", error);
     return {
-      analysis: "API 키가 설정되지 않았거나 연결에 실패했습니다. Vercel 환경 변수(API_KEY 또는 VITE_API_KEY)를 확인해주세요.",
+      analysis: "API 키가 설정되지 않았습니다. Vercel 환경 변수 설정을 확인해주세요.",
       strengths: ["환경 변수 설정 필요"],
       weaknesses: ["API Key 누락"],
       actionPlans: [],
-      weeklyMission: "관리자에게 문의하여 API 설정을 완료하세요."
+      weeklyMission: "Vercel Settings > Environment Variables 에서 'VITE_API_KEY'를 추가하고 재배포하세요."
     };
   }
 
@@ -126,11 +127,104 @@ export const generateCoachingFeedback = async (
     console.error("Gemini API Error:", error);
     // Fallback if API fails
     return {
-      analysis: "AI 분석 서비스를 연결할 수 없습니다. 잠시 후 다시 시도해주세요.",
-      strengths: ["데이터 분석 불가"],
-      weaknesses: ["데이터 분석 불가"],
+      analysis: "AI 분석 서비스를 연결할 수 없습니다. API 키 상태를 확인해주세요.",
+      strengths: ["일시적 오류"],
+      weaknesses: ["연결 실패"],
       actionPlans: [],
-      weeklyMission: "시스템 점검 후 다시 시도해주세요."
+      weeklyMission: "잠시 후 다시 시도하거나 관리자에게 문의하세요."
+    };
+  }
+};
+
+// --- Team/Organizational Coaching ---
+export const generateTeamFeedback = async (
+  avgScores: Record<Competency, number>
+): Promise<CoachingFeedback> => {
+  let ai: GoogleGenAI;
+  const model = "gemini-2.5-flash";
+
+  try {
+    ai = createGeminiClient();
+  } catch (error) {
+    return {
+      analysis: "API Key Error",
+      strengths: [],
+      weaknesses: [],
+      actionPlans: [],
+      weeklyMission: "Please check API Key configuration."
+    };
+  }
+
+  const scoreSummary = Object.entries(avgScores)
+    .map(([key, value]) => `${COMPETENCY_LABELS[key as Competency]}: ${value.toFixed(1)}/5.0`)
+    .join("\n");
+
+  const systemInstruction = `
+    당신은 조직 개발(OD) 전문가이자 기업 전략 컨설턴트입니다.
+    특정 팀(또는 조직)의 '리더십 역량 평균 점수'를 바탕으로 조직 문화와 리더십 현황을 진단해야 합니다.
+
+    분석 대상: 개인이 아닌 '팀 전체'
+    
+    [작성 지침]
+    1. 'analysis' 필드: 우리 조직의 리더십 스타일과 분위기를 요약하십시오. (예: "실행력은 높으나 소통이 부족한 수직적 문화입니다")
+    2. 'strengths' 필드: 조직 차원에서 잘 발휘되고 있는 긍정적인 문화 요소 3가지.
+    3. 'weaknesses' 필드: 조직 차원에서 리스크가 될 수 있는 취약점 3가지.
+    4. 'actionPlans' 필드: 조직 문화를 개선하기 위해 HR이나 리더 그룹이 실행해야 할 전략적 이니셔티브 3가지.
+    5. 'weeklyMission' 필드: 조직 전체가 함께 노력해야 할 슬로건이나 캠페인 주제.
+
+    간결하고 전문적인 톤을 유지하세요.
+  `;
+
+  const prompt = `
+    다음은 우리 팀 리더들의 역량 진단 평균 점수입니다:
+    ${scoreSummary}
+
+    이 데이터를 바탕으로 조직 차원의 인사이트 리포트를 JSON으로 작성해 주세요.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              analysis: { type: Type.STRING, description: "조직 리더십 문화 진단 요약" },
+              strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+              weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+              actionPlans: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    difficulty: { type: Type.STRING, enum: ["Easy", "Medium", "Hard"] }
+                  }
+                }
+              },
+              weeklyMission: { type: Type.STRING, description: "조직 변화를 위한 캠페인 슬로건" }
+            },
+            required: ["analysis", "strengths", "weaknesses", "actionPlans", "weeklyMission"]
+          }
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text) as CoachingFeedback;
+    }
+    throw new Error("No text response");
+  } catch (error) {
+    console.error("Team GenAI Error:", error);
+    return {
+        analysis: "분석을 완료할 수 없습니다.",
+        strengths: [],
+        weaknesses: [],
+        actionPlans: [],
+        weeklyMission: "다시 시도해주세요."
     };
   }
 };
