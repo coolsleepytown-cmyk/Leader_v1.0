@@ -3,16 +3,12 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Competency, CoachingFeedback } from "../types";
 import { COMPETENCY_LABELS } from "../constants";
 
-const getApiKey = () => {
-  return process.env.API_KEY || '';
-};
-
 // --- Individual Coaching ---
 export const generateCoachingFeedback = async (
   scores: Record<Competency, number>
 ): Promise<CoachingFeedback> => {
-  const apiKey = getApiKey();
-  const ai = new GoogleGenAI({ apiKey });
+  // process.env.API_KEY를 직접 사용하여 타입 안정성 확보
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   const model = "gemini-3-flash-preview";
 
   const scoreSummary = Object.entries(scores)
@@ -71,7 +67,13 @@ export const generateCoachingFeedback = async (
       }
     });
 
-    return JSON.parse(response.text) as CoachingFeedback;
+    const text = response.text;
+    if (!text) {
+      throw new Error("Gemini API Error: No response text received.");
+    }
+
+    // text가 string임이 보장되므로 TS2345 오류가 발생하지 않음
+    return JSON.parse(text) as CoachingFeedback;
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;
@@ -82,8 +84,7 @@ export const generateCoachingFeedback = async (
 export const generateTeamFeedback = async (
   avgScores: Record<Competency, number>
 ): Promise<CoachingFeedback> => {
-  const apiKey = getApiKey();
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   const model = "gemini-3-flash-preview";
 
   const scoreSummary = Object.entries(avgScores)
@@ -135,7 +136,12 @@ export const generateTeamFeedback = async (
       }
     });
 
-    const data = JSON.parse(response.text);
+    const text = response.text;
+    if (!text) {
+      throw new Error("Gemini API Error: No team feedback response text received.");
+    }
+
+    const data = JSON.parse(text);
     return { ...data, closingAdvice: "조직 전체를 위한 종합 전략 제언입니다." } as CoachingFeedback;
   } catch (error) {
     console.error("Team GenAI Error:", error);
