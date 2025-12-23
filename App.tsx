@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   ClipboardList, 
@@ -7,13 +8,16 @@ import {
   LogOut, 
   Users,
   ShieldAlert,
-  UserCircle
+  UserCircle,
+  Sparkles,
+  ArrowRight,
+  ChevronRight
 } from 'lucide-react';
 import Assessment from './components/Assessment';
 import Coaching from './components/Coaching';
 import Analytics from './components/Analytics';
 import TeamDashboard from './components/TeamDashboard';
-import { AssessmentResult, UserProfile, Competency } from './types';
+import { AssessmentResult, UserProfile } from './types';
 import { mockDB } from './services/mockDatabase';
 
 enum Tab {
@@ -24,18 +28,12 @@ enum Tab {
   TEAM = 'Team Dashboard'
 }
 
-// Login Component
 const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
   const [isAdminMode, setIsAdminMode] = useState(false);
-  
-  // User Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('팀장');
-  const [department, setDepartment] = useState('');
-
-  // Admin Form State
   const [adminId, setAdminId] = useState('');
   const [adminPw, setAdminPw] = useState('');
 
@@ -43,11 +41,8 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
     e.preventDefault();
     if (name.trim() && email.trim() && company.trim()) {
       onLogin({
-        name: name,
-        email: email,
-        company: company,
-        role: role || '팀장',
-        department: department || 'General',
+        name, email, company, role,
+        department: 'General',
         assessments: [],
         isAdmin: false
       });
@@ -56,172 +51,58 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
 
   const handleAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple mock authentication
     if (adminId === 'admin' && adminPw === 'admin1234') {
       onLogin({
         name: '관리자',
-        email: 'admin@leadai.com',
-        company: 'LeadAI HQ',
+        email: 'admin@limeworks.ai',
+        company: 'LimeWorks HQ',
         role: 'Admin',
         department: 'Management',
         assessments: [],
         isAdmin: true
       });
     } else {
-      alert("아이디 또는 비밀번호가 올바르지 않습니다.\n(Hint: admin / admin1234)");
+      alert("아이디 또는 비밀번호가 올바르지 않습니다.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 animate-fade-in relative overflow-hidden">
-        {/* Top Decoration */}
-        <div className={`absolute top-0 left-0 right-0 h-2 ${isAdminMode ? 'bg-orange-500' : 'bg-blue-600'}`} />
-
-        <div className="flex justify-center mb-6">
-          <div className={`p-3 rounded-full ${isAdminMode ? 'bg-orange-100' : 'bg-blue-100'}`}>
-            {isAdminMode ? (
-                <ShieldAlert className={`w-12 h-12 ${isAdminMode ? 'text-orange-600' : 'text-blue-600'}`} />
-            ) : (
-                <BrainCircuit className="w-12 h-12 text-blue-600" />
-            )}
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-100 rounded-full blur-[120px] opacity-40 animate-pulse" />
+      <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl p-10 relative z-10 border border-slate-100">
+        <div className={`absolute top-0 left-0 right-0 h-2 rounded-t-[2.5rem] ${isAdminMode ? 'bg-orange-500' : 'bg-blue-600'}`} />
+        <div className="flex justify-center mb-8">
+          <div className={`p-4 rounded-2xl ${isAdminMode ? 'bg-orange-50' : 'bg-blue-50'}`}>
+            {isAdminMode ? <ShieldAlert className="w-12 h-12 text-orange-600" /> : <BrainCircuit className="w-12 h-12 text-blue-600" />}
           </div>
         </div>
-        
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">
-            {isAdminMode ? '관리자 로그인' : 'LeadAI 시작하기'}
-          </h1>
-          <p className="text-slate-500 mt-2">
-            {isAdminMode ? '전체 조직 현황을 관리합니다.' : '리더십 역량 강화를 위한 첫 걸음'}
-          </p>
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">{isAdminMode ? '관리자 모드' : 'LeadAI 시작하기'}</h1>
+          <p className="text-slate-500 mt-2 font-medium">라임웍스가 제안하는 프리미엄 리더십 코칭</p>
         </div>
-
-        {/* Toggle Switch */}
-        <div className="flex bg-slate-100 p-1 rounded-lg mb-8">
-            <button 
-                type="button"
-                onClick={() => setIsAdminMode(false)}
-                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center
-                ${!isAdminMode ? 'bg-white shadow text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-                <UserCircle className="w-4 h-4 mr-2" />
-                직원 로그인
-            </button>
-            <button 
-                type="button"
-                onClick={() => setIsAdminMode(true)}
-                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center
-                ${isAdminMode ? 'bg-white shadow text-orange-600' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-                <ShieldAlert className="w-4 h-4 mr-2" />
-                관리자 로그인
-            </button>
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8">
+            <button onClick={() => setIsAdminMode(false)} className={`flex-1 py-3 text-sm font-black rounded-xl transition-all ${!isAdminMode ? 'bg-white shadow text-blue-600' : 'text-slate-400'}`}>직원 접속</button>
+            <button onClick={() => setIsAdminMode(true)} className={`flex-1 py-3 text-sm font-black rounded-xl transition-all ${isAdminMode ? 'bg-white shadow text-orange-600' : 'text-slate-400'}`}>관리자 전용</button>
         </div>
-
         {isAdminMode ? (
-            // Admin Login Form
             <form onSubmit={handleAdminSubmit} className="space-y-4">
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">관리자 ID</label>
-                    <input 
-                    type="text" 
-                    required
-                    placeholder="아이디 입력 (admin)"
-                    value={adminId}
-                    onChange={(e) => setAdminId(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
-                    <input 
-                    type="password" 
-                    required
-                    placeholder="비밀번호 입력 (admin1234)"
-                    value={adminPw}
-                    onChange={(e) => setAdminPw(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
-                    />
-                </div>
-                <button 
-                    type="submit"
-                    className="w-full bg-orange-600 text-white font-bold py-3.5 rounded-lg hover:bg-orange-700 transition-colors shadow-lg shadow-orange-200 mt-4"
-                >
-                    관리자 접속
-                </button>
+                <input type="text" required placeholder="admin" value={adminId} onChange={(e) => setAdminId(e.target.value)} className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-orange-500 outline-none transition-all" />
+                <input type="password" required placeholder="••••••••" value={adminPw} onChange={(e) => setAdminPw(e.target.value)} className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-orange-500 outline-none transition-all" />
+                <button type="submit" className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-orange-700 active:scale-95 transition-all mt-4">대시보드 접속</button>
             </form>
         ) : (
-            // User Login Form
             <form onSubmit={handleUserSubmit} className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">회사명 (필수)</label>
-                <input 
-                type="text" 
-                required
-                placeholder="회사 이름을 입력하세요"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-                />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
-                <input 
-                type="text" 
-                required
-                placeholder="이름을 입력하세요"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-                />
-            </div>
-            
-            <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-                <input 
-                type="email" 
-                required
-                placeholder="example@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-                />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">직책</label>
-                    <input 
-                    type="text" 
-                    placeholder="예: 팀장"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-                    />
+                <input type="text" required placeholder="회사명 (예: 라임웍스)" value={company} onChange={(e) => setCompany(e.target.value)} className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-blue-500 outline-none" />
+                <div className="flex gap-4">
+                    <input type="text" required placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-blue-500 outline-none" />
+                    <input type="text" placeholder="팀장" value={role} onChange={(e) => setRole(e.target.value)} className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-blue-500 outline-none" />
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">부서</label>
-                    <input 
-                    type="text" 
-                    placeholder="예: 영업팀"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-                    />
-                </div>
-            </div>
-
-            <button 
-                type="submit"
-                className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 mt-2"
-            >
-                진단 시작하기
-            </button>
+                <input type="email" required placeholder="이메일 (example@company.com)" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-blue-500 outline-none" />
+                <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-blue-700 active:scale-95 transition-all mt-4 flex items-center justify-center gap-2">리더십 진단 시작 <ArrowRight className="w-5 h-5" /></button>
             </form>
         )}
       </div>
+      <p className="mt-10 text-slate-400 text-xs font-bold tracking-[0.3em]">© 2025 LimeWorks AI Platform</p>
     </div>
   );
 };
@@ -233,29 +114,15 @@ const App: React.FC = () => {
   
   const handleLogin = (newUser: UserProfile) => {
     setUser(newUser);
-    // If admin logs in, redirect to Team Dashboard immediately
-    if (newUser.isAdmin) {
-        setActiveTab(Tab.TEAM);
-    }
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    setAssessmentResult(null);
-    setActiveTab(Tab.DASHBOARD);
+    if (newUser.isAdmin) setActiveTab(Tab.TEAM);
   };
 
   const handleAssessmentComplete = (result: AssessmentResult) => {
     setAssessmentResult(result);
     setActiveTab(Tab.COACHING);
-    
-    // Auto-save to Team Dashboard (Mock DB)
     if (user) {
-      // Generate a unique ID to prevent overwrite and ensure robust multi-user simulation
-      const uniqueId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
       mockDB.addResult({
-        id: uniqueId,
+        id: `user-${Date.now()}`,
         name: user.name,
         email: user.email,
         company: user.company,
@@ -268,224 +135,82 @@ const App: React.FC = () => {
     }
   };
 
-  // Login Screen
-  if (!user) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
+  if (!user) return <LoginScreen onLogin={handleLogin} />;
 
   const renderContent = () => {
     switch (activeTab) {
       case Tab.DASHBOARD:
         return (
-          <div className="space-y-8 animate-fade-in">
-            <header className="mb-8">
-              <h1 className="text-3xl font-bold text-slate-800">
-                안녕하세요, {user.name} {user.role}님 👋
-              </h1>
-              <p className="text-slate-500 mt-2">{user.company}의 더 나은 리더가 되기 위한 여정을 시작해보세요.</p>
+          <div className="space-y-12 animate-fade-in pb-20">
+            <header>
+              <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight"><span className="text-blue-600">{user.name}</span>님, 반갑습니다 👋</h1>
+              <p className="text-slate-500 mt-4 text-xl font-medium max-w-2xl">라임웍스가 분석한 {user.company}의 리더십 데이터와 개인 맞춤형 코칭을 확인하세요.</p>
             </header>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setActiveTab(Tab.ASSESSMENT)}>
-                <div className="bg-blue-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                  <ClipboardList className="w-6 h-6 text-blue-600" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-800">리더십 진단</h3>
-                <p className="text-slate-500 text-sm mt-2">9가지 핵심 역량에 대한 자가 진단을 수행하세요.</p>
-              </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setActiveTab(Tab.COACHING)}>
-                <div className="bg-purple-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                  <BrainCircuit className="w-6 h-6 text-purple-600" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-800">AI 코칭</h3>
-                <p className="text-slate-500 text-sm mt-2">진단 결과를 바탕으로 한 맞춤형 피드백을 확인하세요.</p>
-              </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setActiveTab(Tab.ANALYTICS)}>
-                <div className="bg-emerald-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                  <BarChart3 className="w-6 h-6 text-emerald-600" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-800">성장 분석</h3>
-                <p className="text-slate-500 text-sm mt-2">나의 리더십 스타일 변화 추이를 시각화합니다.</p>
-              </div>
-              
-              {user.isAdmin && (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setActiveTab(Tab.TEAM)}>
-                  <div className="bg-orange-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                    <Users className="w-6 h-6 text-orange-600" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { tab: Tab.ASSESSMENT, icon: ClipboardList, color: 'blue', title: '리더십 진단', desc: '9가지 핵심 지표를 통해 자신의 역량을 객관적으로 측정합니다.' },
+                { tab: Tab.COACHING, icon: BrainCircuit, color: 'purple', title: 'AI 전략 코칭', desc: '진단 결과를 바탕으로 행동으로 옮길 수 있는 전략을 제공합니다.' },
+                { tab: Tab.ANALYTICS, icon: BarChart3, color: 'emerald', title: '성장 데이터', desc: '시각화된 리포트를 통해 리더십의 추이를 추적합니다.' }
+              ].map((item) => (
+                <div key={item.title} onClick={() => setActiveTab(item.tab)} className="group bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-2xl transition-all cursor-pointer">
+                  <div className={`bg-${item.color}-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-8 shadow-xl`}>
+                    <item.icon className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-800">팀 대시보드 (Admin)</h3>
-                  <p className="text-slate-500 text-sm mt-2">팀원들의 진단 결과와 조직 통계를 관리하세요.</p>
+                  <h3 className="text-2xl font-black text-slate-800 mb-4">{item.title}</h3>
+                  <p className="text-slate-500 leading-relaxed font-medium">{item.desc}</p>
                 </div>
-              )}
+              ))}
             </div>
-
-            {assessmentResult && (
-               <div className="bg-slate-900 rounded-xl p-8 text-white mt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                 <div>
-                    <h3 className="text-xl font-bold mb-2">최근 진단 결과 분석 완료</h3>
-                    <p className="text-slate-400">
-                      {new Date(assessmentResult.date).toLocaleDateString()} 진행된 진단에 대한 AI 분석이 준비되었습니다.
-                    </p>
-                 </div>
-                 <button 
-                  onClick={() => setActiveTab(Tab.COACHING)}
-                  className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg font-bold transition-colors whitespace-nowrap"
-                 >
-                    결과 보기
-                 </button>
-               </div>
+            {assessmentResult ? (
+              <div className="bg-slate-900 rounded-[3rem] p-12 text-white mt-16 flex flex-col lg:flex-row justify-between items-center gap-10">
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 text-blue-400 mb-5"><Sparkles className="w-6 h-6" /><span className="font-black text-sm uppercase tracking-widest">Analysis Complete</span></div>
+                    <h3 className="text-4xl font-black mb-5 tracking-tight">전략 리포트가 생성되었습니다</h3>
+                </div>
+                <button onClick={() => setActiveTab(Tab.COACHING)} className="bg-white text-slate-900 px-12 py-5 rounded-[1.5rem] font-black hover:bg-slate-100 transition-all text-lg">리포트 확인하기</button>
+              </div>
+            ) : (
+              <div className="bg-blue-50/50 rounded-[3rem] p-16 text-center border-2 border-dashed border-blue-100 mt-10">
+                <h3 className="text-3xl font-black text-blue-900 mb-6">아직 첫 번째 진단을 수행하지 않으셨습니다</h3>
+                <button onClick={() => setActiveTab(Tab.ASSESSMENT)} className="bg-blue-600 text-white px-14 py-5 rounded-2xl font-black shadow-2xl hover:bg-blue-700 transition-all text-lg flex items-center gap-3 mx-auto">5분 진단 시작하기 <ChevronRight className="w-6 h-6" /></button>
+              </div>
             )}
           </div>
         );
       case Tab.ASSESSMENT:
-        return (
-          <div className="max-w-4xl mx-auto animate-fade-in">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">리더십 역량 진단 (Self-Assessment)</h2>
-            <Assessment 
-              onComplete={handleAssessmentComplete} 
-              onCancel={() => setActiveTab(Tab.DASHBOARD)}
-            />
-          </div>
-        );
+        return <div className="max-w-4xl mx-auto py-10"><h2 className="text-4xl font-black text-slate-900 mb-12 tracking-tight">리더십 정밀 역량 진단</h2><Assessment onComplete={handleAssessmentComplete} onCancel={() => setActiveTab(Tab.DASHBOARD)} /></div>;
       case Tab.COACHING:
-        return (
-          <Coaching 
-            assessment={assessmentResult} 
-            onRetake={() => setActiveTab(Tab.ASSESSMENT)} 
-            userName={user.name}
-          />
-        );
+        return <Coaching assessment={assessmentResult} onRetake={() => setActiveTab(Tab.ASSESSMENT)} userName={user.name} />;
       case Tab.ANALYTICS:
         return <Analytics currentAssessment={assessmentResult} userName={user.name} />;
       case Tab.TEAM:
         return user.isAdmin ? <TeamDashboard /> : null;
-      default:
-        return null;
+      default: return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col sticky top-0 h-screen no-print">
-        <div className="p-6">
-          <div className="flex items-center space-x-2 text-blue-700 font-bold text-2xl">
-             <BrainCircuit className="w-8 h-8" />
-             <span>LeadAI</span>
-          </div>
+    <div className="min-h-screen bg-[#f8fafc] flex font-sans">
+      <aside className="w-80 bg-white border-r border-slate-200 hidden md:flex flex-col sticky top-0 h-screen shadow-sm no-print">
+        <div className="p-10 flex items-center space-x-3 text-blue-600">
+           <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg"><BrainCircuit className="w-7 h-7 text-white" /></div>
+           <span className="font-black text-3xl tracking-tighter">LeadAI</span>
         </div>
-
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <button
-            onClick={() => setActiveTab(Tab.DASHBOARD)}
-            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors
-              ${activeTab === Tab.DASHBOARD ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <LayoutDashboard className="w-5 h-5 mr-3" />
-            대시보드
-          </button>
-          <button
-            onClick={() => setActiveTab(Tab.ASSESSMENT)}
-            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors
-              ${activeTab === Tab.ASSESSMENT ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <ClipboardList className="w-5 h-5 mr-3" />
-            진단하기
-          </button>
-          <button
-            onClick={() => setActiveTab(Tab.COACHING)}
-            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors
-              ${activeTab === Tab.COACHING ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <BrainCircuit className="w-5 h-5 mr-3" />
-            AI 코칭
-          </button>
-          <button
-            onClick={() => setActiveTab(Tab.ANALYTICS)}
-            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors
-              ${activeTab === Tab.ANALYTICS ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <BarChart3 className="w-5 h-5 mr-3" />
-            분석 리포트
-          </button>
-          
-          {user.isAdmin && (
-            <button
-              onClick={() => setActiveTab(Tab.TEAM)}
-              className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors
-                ${activeTab === Tab.TEAM ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              <Users className="w-5 h-5 mr-3" />
-              팀 대시보드
+        <nav className="flex-1 px-6 space-y-2 mt-4">
+          {[Tab.DASHBOARD, Tab.ASSESSMENT, Tab.COACHING, Tab.ANALYTICS].map((tab) => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`w-full flex items-center px-6 py-4.5 rounded-[1.5rem] text-[16px] font-black transition-all ${activeTab === tab ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+              {tab === Tab.DASHBOARD && <LayoutDashboard className="w-6 h-6 mr-4" />}
+              {tab === Tab.ASSESSMENT && <ClipboardList className="w-6 h-6 mr-4" />}
+              {tab === Tab.COACHING && <BrainCircuit className="w-6 h-6 mr-4" />}
+              {tab === Tab.ANALYTICS && <BarChart3 className="w-6 h-6 mr-4" />}
+              {tab === Tab.DASHBOARD ? '대시보드' : tab === Tab.ASSESSMENT ? '진단' : tab === Tab.COACHING ? '코칭' : '리포트'}
             </button>
-          )}
+          ))}
+          {user.isAdmin && <button onClick={() => setActiveTab(Tab.TEAM)} className={`w-full flex items-center px-6 py-4.5 rounded-[1.5rem] text-[16px] font-black transition-all ${activeTab === Tab.TEAM ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}><Users className="w-6 h-6 mr-4" /> 조직 관리</button>}
         </nav>
-
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center p-2 rounded-lg bg-slate-50 mb-4">
-             <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center mr-3 text-blue-700 font-bold">
-               {user.name.charAt(0)}
-             </div>
-             <div>
-                <p className="text-sm font-bold text-slate-800">{user.name}</p>
-                <p className="text-xs text-slate-500 truncate w-32">{user.company}</p>
-             </div>
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center text-slate-500 hover:text-red-600 text-sm py-2"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            로그아웃
-          </button>
-        </div>
+        <div className="p-8"><button onClick={() => setUser(null)} className="w-full flex items-center justify-center gap-3 text-slate-400 hover:text-red-600 font-black text-sm py-4 border-t border-slate-100"><LogOut className="w-4 h-4" /> 로그아웃</button></div>
       </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        {/* Mobile Header */}
-        <div className="md:hidden bg-white border-b border-slate-200 p-4 flex justify-between items-center sticky top-0 z-50 no-print">
-          <div className="flex items-center space-x-2 text-blue-700 font-bold text-xl">
-             <BrainCircuit className="w-6 h-6" />
-             <span>LeadAI</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-slate-700">{user.name}</span>
-            <button onClick={handleLogout} className="p-2 text-slate-600">
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Content Area */}
-        <div className="max-w-7xl mx-auto p-4 md:p-8">
-           {renderContent()}
-        </div>
-      </main>
-
-      {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] no-print">
-          <button onClick={() => setActiveTab(Tab.DASHBOARD)} className={`p-2 flex flex-col items-center ${activeTab === Tab.DASHBOARD ? 'text-blue-600' : 'text-slate-400'}`}>
-            <LayoutDashboard className="w-6 h-6" />
-            <span className="text-[10px] mt-1">홈</span>
-          </button>
-          <button onClick={() => setActiveTab(Tab.ASSESSMENT)} className={`p-2 flex flex-col items-center ${activeTab === Tab.ASSESSMENT ? 'text-blue-600' : 'text-slate-400'}`}>
-            <ClipboardList className="w-6 h-6" />
-            <span className="text-[10px] mt-1">진단</span>
-          </button>
-          <button onClick={() => setActiveTab(Tab.COACHING)} className={`p-2 flex flex-col items-center ${activeTab === Tab.COACHING ? 'text-blue-600' : 'text-slate-400'}`}>
-            <BrainCircuit className="w-6 h-6" />
-            <span className="text-[10px] mt-1">코칭</span>
-          </button>
-           {user.isAdmin && (
-            <button onClick={() => setActiveTab(Tab.TEAM)} className={`p-2 flex flex-col items-center ${activeTab === Tab.TEAM ? 'text-blue-600' : 'text-slate-400'}`}>
-              <Users className="w-6 h-6" />
-              <span className="text-[10px] mt-1">팀</span>
-            </button>
-           )}
-      </nav>
+      <main className="flex-1 overflow-y-auto"><div className="max-w-7xl mx-auto p-6 md:p-16">{renderContent()}</div></main>
     </div>
   );
 };
