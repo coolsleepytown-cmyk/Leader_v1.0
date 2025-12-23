@@ -48,7 +48,10 @@ export const generateCoachingFeedback = async (
       strengths: ["환경 변수 설정 필요"],
       weaknesses: ["API Key 누락"],
       actionPlans: [],
-      weeklyMission: "Vercel Settings > Environment Variables 에서 'VITE_API_KEY'를 추가하고 재배포하세요."
+      weeklyMission: "Vercel Settings > Environment Variables 에서 'VITE_API_KEY'를 추가하고 재배포하세요.",
+      closingAdvice: "시스템 오류로 인해 분석을 완료할 수 없습니다.",
+      recommendedMindset: "시스템 오류로 인해 내용을 불러올 수 없습니다.",
+      dailyTips: []
     };
   }
 
@@ -61,15 +64,18 @@ export const generateCoachingFeedback = async (
     당신은 세계적인 경영 컨설턴트이자 리더십 코치입니다.
     사용자의 리더십 역량 진단 결과(5점 만점)를 바탕으로 심층적인 분석과 구체적인 행동 계획을 제공해야 합니다.
     
-    [중요: 응답 속도 최적화를 위한 지침]
-    1. 핵심만 간결하게 작성하십시오. 장황한 서술을 피하고 개조식(Bullet points)을 활용하세요.
-    2. 분석은 2문장 이내로 요약하십시오.
-    3. 실천 과제는 즉시 실행 가능한 짧은 문장으로 작성하십시오.
+    [중요: 응답 톤앤매너]
+    1. 전문적이지만 딱딱하지 않아야 합니다. '부드러운 카리스마'를 유지하세요.
+    2. 데이터에 기반하여 객관적으로 평가하되, 사용자의 성장을 진심으로 응원하는 어조를 사용하세요.
     
-    분석 가이드라인:
-    1. 점수가 낮은 항목(3.0 미만)에 집중하여 개선점을 제안하십시오.
-    2. 점수가 높은 항목(4.0 이상)은 강점으로 칭찬하고 강화할 방법을 제안하십시오.
-    3. 구체적이고 실행 가능한 '주간 미션'을 하나 제시하십시오.
+    [작성 지침]
+    1. analysis: 리더십 스타일을 2문장 이내로 명확하게 요약.
+    2. strengths/weaknesses: 각각 3가지 핵심 키워드 위주.
+    3. weeklyMission: 즉시 실행 가능한 구체적인 미션.
+    4. closingAdvice: 이 부분은 리포트의 결론입니다. 사용자의 강점과 약점을 종합하여, 객관적인 현재 위치를 짚어주고 앞으로 나아가야 할 방향을 상세하게 서술하세요. (분량: 5~6문장 이상의 상세한 단락)
+    5. recommendedMindset: 리더가 가져야 할 핵심 마인드셋을 감동적이고 철학적인 문장으로 제안하세요. (전체를 관통하는 하나의 메시지)
+    6. dailyTips: 위 마인드셋을 1주일(5일) 동안 실천하기 위한 요일별 구체적 가이드입니다. (Day 1 ~ Day 5). 
+       각 날짜별로 '오늘의 테마(Title)'와 '구체적 실천 행동(Content)'을 제시하세요. 행동은 아주 구체적이어야 합니다. (예: "출근 직후 팀원 3명에게 먼저 인사하기")
   `;
 
   const prompt = `
@@ -112,9 +118,23 @@ export const generateCoachingFeedback = async (
               },
               description: "구체적인 행동 제안 3가지"
             },
-            weeklyMission: { type: Type.STRING, description: "이번 주 핵심 미션 (1문장)" }
+            weeklyMission: { type: Type.STRING, description: "이번 주 핵심 미션 (1문장)" },
+            closingAdvice: { type: Type.STRING, description: "종합 평가 및 디테일한 요약 (객관적 평가와 격려가 포함된 5-6문장 이상의 긴 글)" },
+            recommendedMindset: { type: Type.STRING, description: "실천을 위한 핵심 마인드셋 메시지" },
+            dailyTips: {
+              type: Type.ARRAY,
+              description: "5일간의 요일별 실천 가이드 (Day 1 ~ Day 5)",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  day: { type: Type.STRING, description: "e.g., Day 1" },
+                  title: { type: Type.STRING, description: "오늘의 테마" },
+                  content: { type: Type.STRING, description: "오늘의 구체적 실천 행동" }
+                }
+              }
+            }
           },
-          required: ["analysis", "strengths", "weaknesses", "actionPlans", "weeklyMission"]
+          required: ["analysis", "strengths", "weaknesses", "actionPlans", "weeklyMission", "closingAdvice", "recommendedMindset", "dailyTips"]
         }
       }
     });
@@ -131,7 +151,10 @@ export const generateCoachingFeedback = async (
       strengths: ["일시적 오류"],
       weaknesses: ["연결 실패"],
       actionPlans: [],
-      weeklyMission: "잠시 후 다시 시도하거나 관리자에게 문의하세요."
+      weeklyMission: "잠시 후 다시 시도하거나 관리자에게 문의하세요.",
+      closingAdvice: "네트워크 상태를 확인해주세요.",
+      recommendedMindset: "다시 시도해주세요.",
+      dailyTips: []
     };
   }
 };
@@ -151,7 +174,10 @@ export const generateTeamFeedback = async (
       strengths: [],
       weaknesses: [],
       actionPlans: [],
-      weeklyMission: "Please check API Key configuration."
+      weeklyMission: "Please check API Key configuration.",
+      closingAdvice: "",
+      recommendedMindset: "",
+      dailyTips: []
     };
   }
 
@@ -160,26 +186,29 @@ export const generateTeamFeedback = async (
     .join("\n");
 
   const systemInstruction = `
-    당신은 조직 개발(OD) 전문가이자 기업 전략 컨설턴트입니다.
-    특정 팀(또는 조직)의 '리더십 역량 평균 점수'를 바탕으로 조직 문화와 리더십 현황을 진단해야 합니다.
+    당신은 기업의 C-Level 임원들을 코칭하는 '수석 전략 코치'입니다.
+    조직의 리더십 역량 진단 데이터(평균 점수)를 바탕으로, 조직 문화의 현주소를 진단하고 미래 전략을 제안해야 합니다.
 
-    분석 대상: 개인이 아닌 '팀 전체'
+    [분석 톤앤매너]
+    - 단순히 수치를 나열하지 말고, 실제 컨설팅 보고서처럼 통찰력 있게 서술하십시오.
+    - '전략적 제언(Action Plans)' 부분은 추상적인 조언이 아닌, 실제 실행 가능한 로드맵 형태여야 합니다.
     
     [작성 지침]
-    1. 'analysis' 필드: 우리 조직의 리더십 스타일과 분위기를 요약하십시오. (예: "실행력은 높으나 소통이 부족한 수직적 문화입니다")
-    2. 'strengths' 필드: 조직 차원에서 잘 발휘되고 있는 긍정적인 문화 요소 3가지.
-    3. 'weaknesses' 필드: 조직 차원에서 리스크가 될 수 있는 취약점 3가지.
-    4. 'actionPlans' 필드: 조직 문화를 개선하기 위해 HR이나 리더 그룹이 실행해야 할 전략적 이니셔티브 3가지.
-    5. 'weeklyMission' 필드: 조직 전체가 함께 노력해야 할 슬로건이나 캠페인 주제.
-
-    간결하고 전문적인 톤을 유지하세요.
+    1. 'analysis': 현재 조직 분위기를 날카롭게 파악하고, 비즈니스 영향 예측 (3문장).
+    2. 'strengths': 조직의 경쟁력이 되는 문화적 강점 3가지.
+    3. 'weaknesses': 조직 성장을 저해할 수 있는 잠재적 리스크 3가지.
+    4. 'actionPlans': 전략적 이니셔티브 3가지.
+    5. 'weeklyMission': 전사적으로 공유할 수 있는 강력한 변화의 슬로건.
+    6. 'recommendedMindset': 우리 조직이 변화하기 위해 리더들이 공유해야 할 핵심 가치(Core Value).
+    7. 'dailyTips': 조직 차원에서 리더들이 1주일간 실천해야 할 공통 캠페인 (Day 1 ~ Day 5).
+       - 예: [Day 1] 경청의 날: 모든 회의에서 3분간 듣기만 하기
   `;
 
   const prompt = `
-    다음은 우리 팀 리더들의 역량 진단 평균 점수입니다:
+    다음은 우리 조직 리더들의 역량 진단 평균 점수입니다:
     ${scoreSummary}
 
-    이 데이터를 바탕으로 조직 차원의 인사이트 리포트를 JSON으로 작성해 주세요.
+    위 데이터를 바탕으로 임원 보고용 조직 진단 및 전략 리포트를 JSON으로 작성해 주세요.
   `;
 
   try {
@@ -192,7 +221,7 @@ export const generateTeamFeedback = async (
         responseSchema: {
             type: Type.OBJECT,
             properties: {
-              analysis: { type: Type.STRING, description: "조직 리더십 문화 진단 요약" },
+              analysis: { type: Type.STRING, description: "조직 리더십 문화 진단 및 비즈니스 영향 분석" },
               strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
               weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
               actionPlans: {
@@ -200,21 +229,36 @@ export const generateTeamFeedback = async (
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    title: { type: Type.STRING },
-                    description: { type: Type.STRING },
+                    title: { type: Type.STRING, description: "전략적 이니셔티브 제목" },
+                    description: { type: Type.STRING, description: "구체적 실행 가이드 및 기대 효과 (코칭 스타일)" },
                     difficulty: { type: Type.STRING, enum: ["Easy", "Medium", "Hard"] }
                   }
                 }
               },
-              weeklyMission: { type: Type.STRING, description: "조직 변화를 위한 캠페인 슬로건" }
+              weeklyMission: { type: Type.STRING, description: "조직 변화를 위한 강력한 슬로건" },
+              recommendedMindset: { type: Type.STRING, description: "조직 문화 혁신을 위한 핵심 가치 제언" },
+              dailyTips: {
+                type: Type.ARRAY,
+                description: "조직 리더 공통 실천 캠페인 (5일)",
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    day: { type: Type.STRING, description: "Day 1 ~ Day 5" },
+                    title: { type: Type.STRING, description: "캠페인 테마" },
+                    content: { type: Type.STRING, description: "구체적 행동 지침" }
+                  }
+                }
+              }
             },
-            required: ["analysis", "strengths", "weaknesses", "actionPlans", "weeklyMission"]
+            required: ["analysis", "strengths", "weaknesses", "actionPlans", "weeklyMission", "recommendedMindset", "dailyTips"]
           }
       }
     });
 
     if (response.text) {
-      return JSON.parse(response.text) as CoachingFeedback;
+      // Add empty closingAdvice for compatibility since it's used in Individual feedback
+      const data = JSON.parse(response.text);
+      return { ...data, closingAdvice: "" } as CoachingFeedback;
     }
     throw new Error("No text response");
   } catch (error) {
@@ -224,7 +268,10 @@ export const generateTeamFeedback = async (
         strengths: [],
         weaknesses: [],
         actionPlans: [],
-        weeklyMission: "다시 시도해주세요."
+        weeklyMission: "다시 시도해주세요.",
+        closingAdvice: "",
+        recommendedMindset: "",
+        dailyTips: []
     };
   }
 };

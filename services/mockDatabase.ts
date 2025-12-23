@@ -7,7 +7,8 @@ const INITIAL_MOCK_DATA: TeamAssessmentData[] = [
   {
     id: 'mock-1',
     name: '김철수',
-    email: 'kim@company.com',
+    email: 'kim@techcorp.com',
+    company: '테크코퍼레이션',
     role: '팀장',
     department: '영업 1팀',
     date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(), // 2 days ago
@@ -28,7 +29,8 @@ const INITIAL_MOCK_DATA: TeamAssessmentData[] = [
   {
     id: 'mock-2',
     name: '이영희',
-    email: 'lee@company.com',
+    email: 'lee@techcorp.com',
+    company: '테크코퍼레이션',
     role: '파트장',
     department: '개발팀',
     date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days ago
@@ -49,7 +51,8 @@ const INITIAL_MOCK_DATA: TeamAssessmentData[] = [
   {
     id: 'mock-3',
     name: '박지성',
-    email: 'park@company.com',
+    email: 'park@startuphub.com',
+    company: '스타트업허브',
     role: '매니저',
     department: '인사팀',
     date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(),
@@ -70,7 +73,8 @@ const INITIAL_MOCK_DATA: TeamAssessmentData[] = [
   {
     id: 'mock-4',
     name: '최민수',
-    email: 'choi@company.com',
+    email: 'choi@globalinc.com',
+    company: '글로벌Inc',
     role: '팀장',
     department: '마케팅',
     date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(),
@@ -175,9 +179,12 @@ export const mockDB = {
   },
 
   // Stats calculation
-  getTeamStats: () => {
-    const data = mockDB.getAll().filter(item => !item.isDeleted);
-    if (data.length === 0) return null;
+  // Updated: accepts an optional array of data to calculate stats for
+  getTeamStats: (dataOverride?: TeamAssessmentData[]) => {
+    // If override is provided, use it. Otherwise use all non-deleted data.
+    const sourceData = dataOverride || mockDB.getAll().filter(item => !item.isDeleted);
+    
+    if (sourceData.length === 0) return null;
 
     const competencies = [
       'Communication', 'Decision Making', 'People & Team Management',
@@ -188,16 +195,16 @@ export const mockDB = {
     const avgScores: Partial<Record<Competency, number>> = {};
 
     competencies.forEach((comp) => {
-      const sum = data.reduce((acc, curr) => acc + (curr.scores[comp] || 0), 0);
-      avgScores[comp] = sum / data.length;
+      const sum = sourceData.reduce((acc, curr) => acc + (curr.scores[comp] || 0), 0);
+      avgScores[comp] = sum / sourceData.length;
     });
 
-    const totalAvg = data.reduce((acc, curr) => acc + curr.totalScore, 0) / data.length;
+    const totalAvg = sourceData.reduce((acc, curr) => acc + curr.totalScore, 0) / sourceData.length;
 
     return {
       scores: avgScores as Record<Competency, number>,
       totalAvg,
-      count: data.length,
+      count: sourceData.length,
     };
   }
 };

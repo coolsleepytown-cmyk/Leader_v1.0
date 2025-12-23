@@ -2,11 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { 
   Loader2, TrendingUp, AlertTriangle, Target, BookOpen, 
   ArrowRight, ShieldCheck, Zap, CheckCircle, Calendar, MessageSquare,
-  Download, Image as ImageIcon, X, PenTool, Lightbulb, Check, AlertCircle
+  Download, Image as ImageIcon, X, PenTool, Lightbulb, Check, AlertCircle, Mail, Send, Quote, Share2, Sun, Sparkles,
+  CalendarCheck
 } from 'lucide-react';
 import { AssessmentResult, CoachingFeedback, ActionNote } from '../types';
 import { generateCoachingFeedback } from '../services/geminiService';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 interface CoachingProps {
   assessment: AssessmentResult | null;
@@ -24,10 +26,13 @@ const Coaching: React.FC<CoachingProps> = ({
   const [missionStatus, setMissionStatus] = useState<'idle' | 'accepted' | 'completed'>('idle');
   const [actionNote, setActionNote] = useState<ActionNote | null>(null);
   const [showToast, setShowToast] = useState<{message: string, type: 'success' | 'info'} | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   // Modals State
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
-
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  
   // Note Inputs
   const [noteInputs, setNoteInputs] = useState({ action: '', result: '', insight: '' });
 
@@ -76,16 +81,11 @@ const Coaching: React.FC<CoachingProps> = ({
     showNotification("실천 노트가 저장되었습니다!");
   };
 
-  const handleDownloadImage = async () => {
-    if (!reportRef.current) {
-        showNotification("리포트를 찾을 수 없습니다.", 'info');
-        return;
-    }
+  // Helper for PDF Generation returning File object
+  const generatePdfFile = async (): Promise<File | null> => {
+    if (!reportRef.current) return null;
     
     try {
-      showNotification("이미지를 생성 중입니다...", 'info');
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       const canvas = await html2canvas(reportRef.current, {
         backgroundColor: '#f8fafc',
         scale: 2, 
@@ -93,20 +93,116 @@ const Coaching: React.FC<CoachingProps> = ({
         logging: false,
         allowTaint: true,
         ignoreElements: (element) => {
-            return element.classList.contains('no-print');
+            return element.classList.contains('no-print') || element.hasAttribute('data-html2canvas-ignore');
         }
       });
       
-      const image = canvas.toDataURL("image/png");
-      const link = document.createElement('a');
-      link.href = image;
-      link.download = `LeadAI_Report_${userName}.png`;
-      link.click();
-      showNotification("리포트가 이미지로 저장되었습니다!");
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      const pdfBlob = pdf.output('blob');
+      return new File([pdfBlob], `LeadAI_Coaching_Report_${userName}.pdf`, { type: 'application/pdf' });
     } catch (error) {
-      console.error("Image capture failed:", error);
-      showNotification("이미지 저장에 실패했습니다.", 'info');
+      console.error("PDF generation failed:", error);
+      return null;
     }
+  };
+
+  // Updated: Download PDF using jspdf
+  const handleDownloadPDF = async () => {
+    const originalCursor = document.body.style.cursor;
+    document.body.style.cursor = 'wait';
+    showNotification("PDF 파일을 생성 중입니다...");
+    
+    const file = await generatePdfFile();
+    
+    if (file) {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        link.click();
+        URL.revokeObjectURL(url);
+        showNotification("코칭 리포트가 PDF로 저장되었습니다!");
+    } else {
+        showNotification("PDF 저장에 실패했습니다.", 'info');
+    }
+    document.body.style.cursor = originalCursor;
+  };
+
+  // Updated: Send Email using Share API (Mobile) or Download+Mailto (Desktop)
+  const handleSendEmail = async () => {
+    if (!emailInput.trim()) {
+        showNotification("이메일 주소를 입력해주세요.", 'info');
+        return;
+    }
+    
+    setIsSendingEmail(true);
+
+    const subject = `[LeadAI] Leadership Coaching Report - ${userName}`;
+    const body = `[LeadAI Leadership Coaching Report]\n\n` +
+                 `■ Analysis Summary\n${feedback?.analysis || 'N/A'}\n\n` +
+                 `■ Key Strengths\n${feedback?.strengths.map(s => `• ${s}`).join('\n') || 'N/A'}\n\n` +
+                 `■ Areas for Improvement\n${feedback?.weaknesses.map(w => `• ${w}`).join('\n') || 'N/A'}\n\n` +
+                 `■ Action Plans\n${feedback?.actionPlans.map((p, i) => `${i+1}. ${p.title}`).join('\n') || 'N/A'}\n\n` +
+                 `■ Weekly Mission\n"${feedback?.weeklyMission || ''}"\n\n`;
+
+    const file = await generatePdfFile();
+
+    if (file) {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+             try {
+                await navigator.share({
+                    files: [file],
+                    title: subject,
+                    text: body,
+                });
+                showNotification("메일 앱으로 파일을 공유했습니다.");
+                setIsEmailModalOpen(false);
+                setIsSendingEmail(false);
+                return;
+            } catch (error) {
+                console.log("Share API cancelled");
+            }
+        }
+        const url = URL.createObjectURL(file);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        const mailtoLink = `mailto:${emailInput}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + "\n\n(참고: 리포트 파일이 브라우저 다운로드 폴더에 저장되었습니다. 이 메일에 첨부해주세요.)")}`;
+        window.location.href = mailtoLink;
+        showNotification("PDF가 다운로드되었습니다. 메일 작성 창에 파일을 첨부해주세요.");
+
+    } else {
+        showNotification("PDF 생성 실패. 텍스트만 전송합니다.", 'info');
+        const mailtoLink = `mailto:${emailInput}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailtoLink;
+    }
+
+    setIsEmailModalOpen(false);
+    setEmailInput('');
+    setIsSendingEmail(false);
   };
 
   if (!assessment) {
@@ -133,47 +229,19 @@ const Coaching: React.FC<CoachingProps> = ({
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 space-y-6">
-        <Loader2 className="w-16 h-16 text-blue-600 animate-spin" />
+        <div className="relative">
+            <Loader2 className="w-20 h-20 text-blue-600 animate-spin" />
+            <Sparkles className="w-8 h-8 text-blue-400 absolute top-0 right-0 animate-pulse" />
+        </div>
         <div className="text-center">
-          <h3 className="text-xl font-bold text-slate-800">AI가 {userName}님의 결과를 분석 중입니다...</h3>
-          <p className="text-slate-500 mt-2">Gemini Pro가 리더십 데이터를 해석하고 있습니다.</p>
+          <h3 className="text-2xl font-bold text-slate-800">AI가 {userName}님의 결과를 분석 중입니다...</h3>
+          <p className="text-slate-500 mt-2 text-lg font-medium">라임웍스가 리더십 데이터를 분석하고 있습니다.</p>
         </div>
       </div>
     );
   }
 
   if (!feedback) return null;
-
-  // Check if feedback indicates an API error
-  const isApiError = feedback.strengths.includes("환경 변수 설정 필요") || feedback.analysis.includes("API 키가 설정되지 않았거나");
-
-  if (isApiError) {
-    return (
-        <div className="max-w-2xl mx-auto mt-10 p-6 bg-red-50 border border-red-200 rounded-xl flex flex-col items-center text-center">
-            <div className="p-3 bg-red-100 rounded-full mb-4">
-                <AlertCircle className="w-8 h-8 text-red-600" />
-            </div>
-            <h3 className="text-xl font-bold text-red-700 mb-2">AI 코칭 서비스를 실행할 수 없습니다</h3>
-            <p className="text-red-600 mb-4">
-                {feedback.analysis}
-            </p>
-            <div className="bg-white p-4 rounded-lg border border-red-100 text-sm text-slate-600 text-left w-full max-w-md">
-                <p className="font-bold mb-2">해결 방법:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                    <li>Vercel 대시보드에서 <strong>Settings &gt; Environment Variables</strong>로 이동하세요.</li>
-                    <li><strong>API_KEY</strong> (또는 VITE_API_KEY) 이름으로 Google Gemini API 키를 추가하세요.</li>
-                    <li>설정 후 <strong>Redeploy</strong>를 수행해야 적용됩니다.</li>
-                </ul>
-            </div>
-            <button 
-                onClick={onRetake}
-                className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-            >
-                다시 시도하기
-            </button>
-        </div>
-    );
-  }
 
   return (
     <div className="relative">
@@ -186,6 +254,62 @@ const Coaching: React.FC<CoachingProps> = ({
              {showToast.message}
            </div>
         </div>
+      )}
+
+      {/* Email Modal */}
+      {isEmailModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" data-html2canvas-ignore>
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-800 flex items-center">
+                          <Mail className="w-5 h-5 mr-2 text-blue-600" />
+                          코칭 리포트 전송
+                      </h3>
+                      <button onClick={() => setIsEmailModalOpen(false)}><X className="w-5 h-5 text-slate-400" /></button>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-lg mb-4 text-sm text-blue-800">
+                    <p className="font-bold mb-1">📢 파일 첨부 안내</p>
+                    <p>보안 정책상 웹에서 메일로 파일을 직접 첨부할 수 없습니다.</p>
+                    <p className="mt-2 text-blue-600">
+                        파일이 <strong>자동으로 다운로드</strong>되니,<br/>
+                        열리는 메일 창에 <strong>드래그하여 첨부</strong>해주세요.
+                    </p>
+                  </div>
+                  <input 
+                      type="email" 
+                      placeholder="받는 사람 이메일 주소" 
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-blue-200 outline-none"
+                  />
+                  <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => setIsEmailModalOpen(false)} 
+                        className="px-4 py-2 text-slate-500 text-sm"
+                        disabled={isSendingEmail}
+                      >
+                          취소
+                      </button>
+                      <button 
+                        onClick={handleSendEmail} 
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold flex items-center"
+                        disabled={isSendingEmail}
+                      >
+                          {isSendingEmail ? (
+                            <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                처리 중...
+                            </>
+                          ) : (
+                            <>
+                                <Send className="w-4 h-4 mr-2" />
+                                메일 작성 및 다운로드
+                            </>
+                          )}
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
 
       {/* Note Writing Modal */}
@@ -216,7 +340,6 @@ const Coaching: React.FC<CoachingProps> = ({
                     <label className="block text-sm font-bold text-slate-700 mb-2">
                         1. 구체적 행동 (Action)
                     </label>
-                    <p className="text-xs text-slate-500 mb-2">어떤 상황에서 구체적으로 무엇을 실천했나요?</p>
                     <textarea 
                         className="w-full border border-slate-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none h-24 resize-none"
                         placeholder="예: 팀 회의 때 팀원의 의견을 끝까지 경청하고, '좋은 의견입니다'라고 피드백했습니다."
@@ -229,7 +352,6 @@ const Coaching: React.FC<CoachingProps> = ({
                     <label className="block text-sm font-bold text-slate-700 mb-2">
                         2. 결과 및 반응 (Result)
                     </label>
-                    <p className="text-xs text-slate-500 mb-2">그로 인해 어떤 변화나 반응이 있었나요?</p>
                     <textarea 
                         className="w-full border border-slate-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none h-24 resize-none"
                         placeholder="예: 팀원이 자신의 의견이 존중받는다고 느껴 더 적극적으로 아이디어를 냈습니다."
@@ -242,7 +364,6 @@ const Coaching: React.FC<CoachingProps> = ({
                     <label className="block text-sm font-bold text-slate-700 mb-2">
                         3. 배운 점 (Insight)
                     </label>
-                    <p className="text-xs text-slate-500 mb-2">이 경험을 통해 리더로서 무엇을 깨달았나요?</p>
                     <textarea 
                         className="w-full border border-slate-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none h-24 resize-none"
                         placeholder="예: 작은 경청의 태도가 팀 분위기를 크게 바꿀 수 있음을 배웠습니다."
@@ -273,11 +394,18 @@ const Coaching: React.FC<CoachingProps> = ({
       {/* Controls */}
       <div className="flex justify-end gap-3 mb-4" data-html2canvas-ignore>
         <button 
-            onClick={handleDownloadImage}
+            onClick={() => setIsEmailModalOpen(true)}
+            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm"
+        >
+            <Mail className="w-4 h-4 mr-2" />
+            이메일 발송
+        </button>
+        <button 
+            onClick={handleDownloadPDF}
             className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm"
         >
             <Download className="w-4 h-4 mr-2" />
-            이미지 저장
+            PDF 저장
         </button>
       </div>
 
@@ -288,11 +416,11 @@ const Coaching: React.FC<CoachingProps> = ({
           <div className="relative z-10">
             <div className="flex justify-between items-start">
               <div className="flex items-center space-x-2 mb-4">
-                <span className="bg-blue-500 text-xs font-bold px-2 py-1 rounded">AI COACHING</span>
+                <span className="bg-blue-500 text-xs font-bold px-2 py-1 rounded">AI COACHING REPORT</span>
                 <span className="text-slate-300 text-xs">{new Date(assessment.date).toLocaleDateString()} 분석</span>
               </div>
             </div>
-            <h2 className="text-3xl font-bold mb-4">{userName ? `${userName}님의 ` : ''}리더십 분석 리포트</h2>
+            <h2 className="text-3xl font-bold mb-4">{userName ? `${userName}님의 ` : ''}리더십 코칭 분석</h2>
             <p className="text-slate-300 leading-relaxed max-w-3xl text-lg">
               {feedback.analysis}
             </p>
@@ -300,7 +428,6 @@ const Coaching: React.FC<CoachingProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Strengths Card */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
             <div className="flex items-center mb-6">
               <div className="p-2 bg-green-100 rounded-lg mr-3">
@@ -318,7 +445,6 @@ const Coaching: React.FC<CoachingProps> = ({
             </ul>
           </div>
 
-          {/* Weaknesses Card */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
             <div className="flex items-center mb-6">
               <div className="p-2 bg-orange-100 rounded-lg mr-3">
@@ -337,7 +463,6 @@ const Coaching: React.FC<CoachingProps> = ({
           </div>
         </div>
 
-        {/* Action Plan */}
         <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
           <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center">
               <Zap className="w-6 h-6 text-yellow-500 mr-2" />
@@ -362,84 +487,20 @@ const Coaching: React.FC<CoachingProps> = ({
           </div>
         </div>
 
-        {/* Weekly Mission & Action Note Area */}
         <div className="bg-blue-600 rounded-xl p-8 text-white relative overflow-hidden shadow-lg transition-all duration-500">
-          <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-10 translate-y-10">
-              <Target className="w-48 h-48" />
-          </div>
           <div className="relative z-10">
               <div className="flex justify-between items-start">
                   <div>
                       <h3 className="text-lg font-semibold text-blue-100 mb-2 flex items-center">
                           THIS WEEK'S MISSION
-                          {missionStatus !== 'idle' && (
-                              <span className="ml-3 bg-blue-500 text-xs px-2 py-0.5 rounded-full border border-blue-400">
-                                  {missionStatus === 'accepted' ? '진행 중 (In Progress)' : '완료됨 (Completed)'}
-                              </span>
-                          )}
                       </h3>
                       <div className="text-3xl font-bold leading-tight max-w-2xl">
                           "{feedback.weeklyMission}"
                       </div>
                   </div>
-                  {missionStatus === 'completed' && (
-                      <div className="bg-white/20 p-2 rounded-full">
-                          <CheckCircle className="w-8 h-8 text-white" />
-                      </div>
-                  )}
               </div>
-
-              {/* Interaction Buttons - Hidden in Image CAPTURE only if not displaying the note */}
-              <div data-html2canvas-ignore="true">
-                  {missionStatus === 'idle' && (
-                      <button 
-                          onClick={handleAcceptMission}
-                          className="mt-6 px-6 py-3 rounded-full bg-white text-blue-700 hover:bg-blue-50 font-bold text-sm flex items-center shadow-lg transition-colors"
-                      >
-                          미션 수락하기
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                      </button>
-                  )}
-
-                  {missionStatus === 'accepted' && (
-                      <div className="mt-8 animate-fade-in bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-                          <h4 className="font-bold text-lg mb-4 flex items-center">
-                              <Calendar className="w-5 h-5 mr-2" />
-                              실천 가이드
-                          </h4>
-                          <ul className="space-y-3 mb-6 text-blue-50">
-                              <li className="flex items-center">
-                                  <div className="w-1.5 h-1.5 bg-blue-300 rounded-full mr-3" />
-                                  팀원들과의 회의나 1:1 면담 시 의식적으로 실천해보세요.
-                              </li>
-                              <li className="flex items-center">
-                                  <div className="w-1.5 h-1.5 bg-blue-300 rounded-full mr-3" />
-                                  매일 저녁, 오늘의 실천 내용을 짧게 메모하세요.
-                              </li>
-                          </ul>
-                          <div className="flex flex-col sm:flex-row gap-3">
-                              <button 
-                                  onClick={handleCompleteMission}
-                                  className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center shadow-lg"
-                              >
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  미션 완료 처리
-                              </button>
-                              <button 
-                                  onClick={handleOpenNoteModal}
-                                  className="flex-1 bg-white hover:bg-slate-50 text-blue-700 px-4 py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center shadow-lg"
-                              >
-                                  <MessageSquare className="w-4 h-4 mr-2" />
-                                  실천 노트 작성
-                              </button>
-                          </div>
-                      </div>
-                  )}
-              </div>
-
-              {/* Display Action Note (Included in Image) */}
               {actionNote && (
-                 <div className="mt-8 bg-white text-slate-800 rounded-xl p-6 shadow-xl animate-fade-in">
+                 <div className="mt-8 bg-white text-slate-800 rounded-xl p-6 shadow-xl">
                     <div className="flex items-center mb-4 text-blue-600 border-b border-slate-100 pb-2">
                         <PenTool className="w-5 h-5 mr-2" />
                         <h4 className="font-bold text-lg">MY LEADERSHIP JOURNAL</h4>
@@ -447,20 +508,11 @@ const Coaching: React.FC<CoachingProps> = ({
                     </div>
                     <div className="space-y-4">
                         <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Action (행동)</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Action</p>
                             <p className="text-sm bg-slate-50 p-3 rounded-lg border border-slate-100">{actionNote.action}</p>
                         </div>
-                        {actionNote.result && (
-                            <div>
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Result (결과)</p>
-                                <p className="text-sm bg-slate-50 p-3 rounded-lg border border-slate-100">{actionNote.result}</p>
-                            </div>
-                        )}
                         <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center">
-                                Insight (배운 점)
-                                <Lightbulb className="w-3 h-3 ml-1 text-yellow-500" />
-                            </p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Insight</p>
                             <p className="text-sm bg-yellow-50/50 p-3 rounded-lg border border-yellow-100 text-slate-700">{actionNote.insight}</p>
                         </div>
                     </div>
@@ -468,6 +520,44 @@ const Coaching: React.FC<CoachingProps> = ({
               )}
           </div>
         </div>
+
+        {feedback.closingAdvice && (
+            <div className="mt-8 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-10 text-white text-center shadow-2xl relative overflow-hidden print-break-inside-avoid">
+                <Quote className="w-16 h-16 text-slate-700 absolute top-4 left-4 opacity-30" />
+                <div className="relative z-10">
+                    <h3 className="text-2xl font-bold mb-6 font-serif uppercase tracking-widest">Comprehensive Review</h3>
+                    <div className="w-16 h-1 bg-blue-500 mx-auto mb-6 rounded-full"></div>
+                    <p className="text-lg leading-loose text-slate-200 italic font-light max-w-4xl mx-auto">
+                        "{feedback.closingAdvice}"
+                    </p>
+                </div>
+            </div>
+        )}
+
+        {feedback.recommendedMindset && (
+             <div className="mt-8 bg-white border border-teal-100 rounded-xl overflow-hidden shadow-lg print-break-inside-avoid">
+                 <div className="bg-teal-50 p-6 border-b border-teal-100 flex items-center">
+                     <Sun className="w-6 h-6 text-teal-600 mr-3" />
+                     <h3 className="text-xl font-bold text-teal-900">Mindset & Daily Practice</h3>
+                 </div>
+                 <div className="p-8 space-y-8">
+                     <div className="bg-teal-50/30 p-6 rounded-xl border border-teal-50 italic text-slate-700 text-lg font-medium">
+                        "{feedback.recommendedMindset}"
+                     </div>
+                     {feedback.dailyTips && (
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            {feedback.dailyTips.map((tip, index) => (
+                                <div key={index} className="bg-white border border-slate-200 rounded-lg p-4 hover:border-teal-300 transition-all">
+                                    <div className="text-xs font-bold text-teal-600 mb-2 uppercase">{tip.day}</div>
+                                    <h5 className="font-bold text-slate-800 text-sm mb-2">{tip.title}</h5>
+                                    <p className="text-xs text-slate-600 leading-relaxed">{tip.content}</p>
+                                </div>
+                            ))}
+                        </div>
+                     )}
+                 </div>
+             </div>
+        )}
       </div>
     </div>
   );

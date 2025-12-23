@@ -6,6 +6,8 @@ import {
   BarChart3, 
   LogOut, 
   Users,
+  ShieldAlert,
+  UserCircle
 } from 'lucide-react';
 import Assessment from './components/Assessment';
 import Coaching from './components/Coaching';
@@ -24,95 +26,201 @@ enum Tab {
 
 // Login Component
 const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  
+  // User Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [company, setCompany] = useState('');
   const [role, setRole] = useState('팀장');
   const [department, setDepartment] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Admin Form State
+  const [adminId, setAdminId] = useState('');
+  const [adminPw, setAdminPw] = useState('');
+
+  const handleUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim() && email.trim()) {
-      // Simple Admin Logic: Check if name or role implies admin rights
-      const isAdmin = name.toLowerCase() === 'admin' || role.toLowerCase() === 'admin' || name === '관리자';
-      
+    if (name.trim() && email.trim() && company.trim()) {
       onLogin({
         name: name,
         email: email,
+        company: company,
         role: role || '팀장',
         department: department || 'General',
         assessments: [],
-        isAdmin: isAdmin
+        isAdmin: false
       });
+    }
+  };
+
+  const handleAdminSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Simple mock authentication
+    if (adminId === 'admin' && adminPw === 'admin1234') {
+      onLogin({
+        name: '관리자',
+        email: 'admin@leadai.com',
+        company: 'LeadAI HQ',
+        role: 'Admin',
+        department: 'Management',
+        assessments: [],
+        isAdmin: true
+      });
+    } else {
+      alert("아이디 또는 비밀번호가 올바르지 않습니다.\n(Hint: admin / admin1234)");
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 animate-fade-in">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 animate-fade-in relative overflow-hidden">
+        {/* Top Decoration */}
+        <div className={`absolute top-0 left-0 right-0 h-2 ${isAdminMode ? 'bg-orange-500' : 'bg-blue-600'}`} />
+
         <div className="flex justify-center mb-6">
-          <div className="bg-blue-100 p-3 rounded-full">
-            <BrainCircuit className="w-12 h-12 text-blue-600" />
+          <div className={`p-3 rounded-full ${isAdminMode ? 'bg-orange-100' : 'bg-blue-100'}`}>
+            {isAdminMode ? (
+                <ShieldAlert className={`w-12 h-12 ${isAdminMode ? 'text-orange-600' : 'text-blue-600'}`} />
+            ) : (
+                <BrainCircuit className="w-12 h-12 text-blue-600" />
+            )}
           </div>
         </div>
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">LeadAI 시작하기</h1>
-          <p className="text-slate-500 mt-2">리더십 역량 강화를 위한 첫 걸음</p>
+        
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-slate-800">
+            {isAdminMode ? '관리자 로그인' : 'LeadAI 시작하기'}
+          </h1>
+          <p className="text-slate-500 mt-2">
+            {isAdminMode ? '전체 조직 현황을 관리합니다.' : '리더십 역량 강화를 위한 첫 걸음'}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
-            <input 
-              type="text" 
-              required
-              placeholder="이름을 입력하세요"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-            <input 
-              type="email" 
-              required
-              placeholder="example@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-            />
-          </div>
+        {/* Toggle Switch */}
+        <div className="flex bg-slate-100 p-1 rounded-lg mb-8">
+            <button 
+                type="button"
+                onClick={() => setIsAdminMode(false)}
+                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center
+                ${!isAdminMode ? 'bg-white shadow text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+                <UserCircle className="w-4 h-4 mr-2" />
+                직원 로그인
+            </button>
+            <button 
+                type="button"
+                onClick={() => setIsAdminMode(true)}
+                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center
+                ${isAdminMode ? 'bg-white shadow text-orange-600' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+                <ShieldAlert className="w-4 h-4 mr-2" />
+                관리자 로그인
+            </button>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">직책/역할</label>
-            <input 
-              type="text" 
-              placeholder="예: 팀장, 파트장"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-            />
-          </div>
+        {isAdminMode ? (
+            // Admin Login Form
+            <form onSubmit={handleAdminSubmit} className="space-y-4">
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">관리자 ID</label>
+                    <input 
+                    type="text" 
+                    required
+                    placeholder="아이디 입력 (admin)"
+                    value={adminId}
+                    onChange={(e) => setAdminId(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+                    <input 
+                    type="password" 
+                    required
+                    placeholder="비밀번호 입력 (admin1234)"
+                    value={adminPw}
+                    onChange={(e) => setAdminPw(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
+                    />
+                </div>
+                <button 
+                    type="submit"
+                    className="w-full bg-orange-600 text-white font-bold py-3.5 rounded-lg hover:bg-orange-700 transition-colors shadow-lg shadow-orange-200 mt-4"
+                >
+                    관리자 접속
+                </button>
+            </form>
+        ) : (
+            // User Login Form
+            <form onSubmit={handleUserSubmit} className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">회사명 (필수)</label>
+                <input 
+                type="text" 
+                required
+                placeholder="회사 이름을 입력하세요"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">부서 (선택)</label>
-            <input 
-              type="text" 
-              placeholder="예: 영업기획팀"
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-            />
-          </div>
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                <input 
+                type="text" 
+                required
+                placeholder="이름을 입력하세요"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                />
+            </div>
+            
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+                <input 
+                type="email" 
+                required
+                placeholder="example@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                />
+            </div>
 
-          <button 
-            type="submit"
-            className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 mt-2"
-          >
-            접속하기
-          </button>
-        </form>
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">직책</label>
+                    <input 
+                    type="text" 
+                    placeholder="예: 팀장"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">부서</label>
+                    <input 
+                    type="text" 
+                    placeholder="예: 영업팀"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                    />
+                </div>
+            </div>
+
+            <button 
+                type="submit"
+                className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 mt-2"
+            >
+                진단 시작하기
+            </button>
+            </form>
+        )}
       </div>
     </div>
   );
@@ -125,6 +233,10 @@ const App: React.FC = () => {
   
   const handleLogin = (newUser: UserProfile) => {
     setUser(newUser);
+    // If admin logs in, redirect to Team Dashboard immediately
+    if (newUser.isAdmin) {
+        setActiveTab(Tab.TEAM);
+    }
   };
 
   const handleLogout = () => {
@@ -146,6 +258,7 @@ const App: React.FC = () => {
         id: uniqueId,
         name: user.name,
         email: user.email,
+        company: user.company,
         role: user.role,
         department: user.department,
         date: result.date,
@@ -169,7 +282,7 @@ const App: React.FC = () => {
               <h1 className="text-3xl font-bold text-slate-800">
                 안녕하세요, {user.name} {user.role}님 👋
               </h1>
-              <p className="text-slate-500 mt-2">오늘도 더 나은 리더가 되기 위한 여정을 시작해보세요.</p>
+              <p className="text-slate-500 mt-2">{user.company}의 더 나은 리더가 되기 위한 여정을 시작해보세요.</p>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -202,8 +315,8 @@ const App: React.FC = () => {
                   <div className="bg-orange-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
                     <Users className="w-6 h-6 text-orange-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-800">팀 대시보드</h3>
-                  <p className="text-slate-500 text-sm mt-2">팀원들의 진단 결과와 조직 통계를 확인하세요.</p>
+                  <h3 className="text-lg font-bold text-slate-800">팀 대시보드 (Admin)</h3>
+                  <p className="text-slate-500 text-sm mt-2">팀원들의 진단 결과와 조직 통계를 관리하세요.</p>
                 </div>
               )}
             </div>
@@ -245,7 +358,7 @@ const App: React.FC = () => {
           />
         );
       case Tab.ANALYTICS:
-        return <Analytics currentAssessment={assessmentResult} />;
+        return <Analytics currentAssessment={assessmentResult} userName={user.name} />;
       case Tab.TEAM:
         return user.isAdmin ? <TeamDashboard /> : null;
       default:
@@ -256,7 +369,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col sticky top-0 h-screen">
+      <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col sticky top-0 h-screen no-print">
         <div className="p-6">
           <div className="flex items-center space-x-2 text-blue-700 font-bold text-2xl">
              <BrainCircuit className="w-8 h-8" />
@@ -317,7 +430,7 @@ const App: React.FC = () => {
              </div>
              <div>
                 <p className="text-sm font-bold text-slate-800">{user.name}</p>
-                <p className="text-xs text-slate-500 truncate w-32">{user.role}</p>
+                <p className="text-xs text-slate-500 truncate w-32">{user.company}</p>
              </div>
           </div>
           <button 
@@ -333,7 +446,7 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         {/* Mobile Header */}
-        <div className="md:hidden bg-white border-b border-slate-200 p-4 flex justify-between items-center sticky top-0 z-50">
+        <div className="md:hidden bg-white border-b border-slate-200 p-4 flex justify-between items-center sticky top-0 z-50 no-print">
           <div className="flex items-center space-x-2 text-blue-700 font-bold text-xl">
              <BrainCircuit className="w-6 h-6" />
              <span>LeadAI</span>
@@ -353,7 +466,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] no-print">
           <button onClick={() => setActiveTab(Tab.DASHBOARD)} className={`p-2 flex flex-col items-center ${activeTab === Tab.DASHBOARD ? 'text-blue-600' : 'text-slate-400'}`}>
             <LayoutDashboard className="w-6 h-6" />
             <span className="text-[10px] mt-1">홈</span>

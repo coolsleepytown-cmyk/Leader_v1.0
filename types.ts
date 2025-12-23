@@ -1,3 +1,4 @@
+
 export enum Competency {
   COMMUNICATION = 'Communication',
   DECISION_MAKING = 'Decision Making',
@@ -35,27 +36,38 @@ export interface ActionNote {
   insight: string;  // 배운 점 (What did you learn?)
 }
 
+export interface DailyTip {
+  day: string;   // e.g. "Day 1"
+  title: string; // e.g. "경청의 날"
+  content: string; // e.g. "오늘은 회의 중 팀원의 말을 끝까지 듣고..."
+}
+
 export interface CoachingFeedback {
   analysis: string;
   strengths: string[];
   weaknesses: string[];
   actionPlans: ActionPlan[];
   weeklyMission: string;
+  closingAdvice: string;
+  recommendedMindset: string;
+  dailyTips: DailyTip[]; // Added for 5-day guide
 }
 
 export interface UserProfile {
   name: string;
   email: string;
+  company: string;
   role: string;
   department: string;
   assessments: AssessmentResult[];
-  isAdmin?: boolean; // Added for access control
+  isAdmin?: boolean;
 }
 
 export interface TeamAssessmentData {
   id: string;
   name: string;
   email: string;
+  company: string;
   role: string;
   department: string;
   date: string;
